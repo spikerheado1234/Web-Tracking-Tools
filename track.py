@@ -72,7 +72,7 @@ def main():
             parsed_active_link = parse_url(active_tab[5:])
 
             config_json = load_config()
-            cnct = mysql.connector.connect(user=config_json['user'], database=config_json['database'], password=config_json['password'])
+            cnct = mysql.connector.connect(host="127.0.0.1:33060", user=config_json['user'], database=config_json['database'], password=config_json['password'])
             get_link_buffer = cnct.cursor(buffered=True)
             update_link_buffer = cnct.cursor(buffered=True)
             insert_link_buffer = cnct.cursor(buffered=True)
