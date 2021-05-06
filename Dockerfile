@@ -1,0 +1,5 @@
+FROM mysql:5.7
+
+WORKDIR /
+
+ENV MYSQL_ROOT_PASSWORD password 
