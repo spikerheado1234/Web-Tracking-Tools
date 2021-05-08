@@ -1,29 +1,14 @@
 import subprocess
-import mysql.connector
 import json
 import time
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 # Define queries that we will use repeatedly over here.
 
-def insert_new_link_query(table_name):
-    return  (
-            "INSERT INTO " + table_name + " (link_name, active_time, inactive_time) "
-            "VALUES (%s, %s, %s);"
-            )
-
-def update_old_link_query(table_name):
-    return (
-            "UPDATE " + table_name + " "
-            "SET active_time = %s, inactive_time = %s "
-            "WHERE link_name = %s;"
-            )
-
-def get_link_query(table_name):
-    return (
-            "SELECT link_name, active_time, inactive_time "
-            "FROM " + table_name + " "
-            "WHERE link_name = %s;"
-            )
+def insert_link_query(write_api, website, bucket_name, active_time, inactive_time):
+    one = Point("measurement").tag("website", website).field("active_time", active_time).field("inactive_time", inactive_time)
+    write_api.write(bucket=bucket_name, record=[one])
 
 def load_config():
     try:
@@ -72,29 +57,13 @@ def main():
             parsed_active_link = parse_url(active_tab[5:])
 
             config_json = load_config()
-            cnct = mysql.connector.connect(host="127.0.0.1:33060", user=config_json['user'], database=config_json['database'], password=config_json['password'])
-            get_link_buffer = cnct.cursor(buffered=True)
-            update_link_buffer = cnct.cursor(buffered=True)
-            insert_link_buffer = cnct.cursor(buffered=True)
+            client = InfluxDBClient(url='http://localhost:8086', token=config_json['token'], org=config_json['org'])
+            write_api = client.write_api(write_options=SYNCHRONOUS)
+            query_api = client.query_api()
 
             for link in parsed_links:
-                get_link_buffer.execute(get_link_query(config_json['table']), (link,))
-                if get_link_buffer.rowcount > 0:
-                    assert get_link_buffer.rowcount == 1
-                    new_active_time = 0
-                    new_inactive_time = 0
-                    for (link_name, active_time, inactive_time) in get_link_buffer:
-                        new_active_time = active_time if parsed_active_link != link else active_time + 1
-                        new_inactive_time = inactive_time if parsed_active_link == link else inactive_time + 1
+                active_time = 0 if parsed_active_link != link else 1
+                inactive_time = 1 if parsed_active_link != link else 0
+                insert_link_query(write_api, link, config_json['bucket_name'], active_time, inactive_time)
 
-                    update_link_buffer.execute(update_old_link_query(config_json['table']), (new_active_time, new_inactive_time, link))
-                else: # Persist new link to the database.
-                    active_time = 0 if parsed_active_link != link else 1
-                    inactive_time = 1 if parsed_active_link != link else 0
-
-                    insert_link_buffer.execute(insert_new_link_query(config_json['table']), (link, active_time, inactive_time))
-
-                cnct.commit()
-
-        print('a')
         time.sleep(1)
