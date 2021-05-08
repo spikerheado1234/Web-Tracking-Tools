@@ -46,21 +46,20 @@ def main():
                 is_chrome_open = True
 
             if is_chrome_open:
-                all_tabs = subprocess.Popen(["chrome-cli", "list", "links"], stdout=subprocess.PIPE)
-                active_tab = subprocess.Popen(["chrome-cli", "info"], stdout=subprocess.PIPE)
+                all_tabs = subprocess.Popen(["osascript", "show_tabs_chrome.scpt"], stdout=subprocess.PIPE)
                 all_tabs = all_tabs.stdout.read()
-                active_tab = active_tab.stdout.read()
-                all_tabs = all_tabs.split()
-                active_tab = active_tab.decode('utf-8').split('\n')[2]
+                all_tabs = all_tabs.decode('utf-8').split('\n')
 
                 parsed_links = set()
+                parsed_active_link = ''
                 for link in all_tabs:
-                    string_form = link.decode('utf-8')
-                    if string_form[0] != '[':
-                        parsed_url = parse_url(string_form)
-                        parsed_links.add(parsed_url)
-
-                parsed_active_link = parse_url(active_tab[5:])
+                    if link:
+                        string_form = link
+                        if string_form.split()[0] != 'Active:':
+                            parsed_url = parse_url(string_form.split()[0])
+                            parsed_links.add(parsed_url)
+                        elif string_form.split()[0] == 'Active:':
+                            parsed_active_link = parse_url(string_form.split()[1])
 
                 write_api = client.write_api(write_options=SYNCHRONOUS)
                 query_api = client.query_api()
@@ -72,5 +71,5 @@ def main():
 
             time.sleep(1)
 
-    except:
+    except Exception as e:
         client.close()

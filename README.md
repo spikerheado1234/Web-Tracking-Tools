@@ -4,8 +4,7 @@
 
 We assume, throughout this documentation, the following software is installed:
 <ol>
-<li> Brew </li>
-<li> chrome-cli (which can be installed using brew) </li>
+<li> Docker </li>
 </ol>
 
 ### Simple usage 
