@@ -31,39 +31,46 @@ def parse_url(url):
 
 def main():
     # Main logic resides here.
-    while True:
-        is_chrome_open = False
-        list_procs = ""
-        output = subprocess.Popen(["ps", "aux"], stdout=subprocess.PIPE)
-        list_procs = output.stdout.read()
-        if 'Google Chrome'.encode('utf-8') in list_procs:
-            is_chrome_open = True
 
-        if is_chrome_open:
-            all_tabs = subprocess.Popen(["chrome-cli", "list", "links"], stdout=subprocess.PIPE)
-            active_tab = subprocess.Popen(["chrome-cli", "info"], stdout=subprocess.PIPE)
-            all_tabs = all_tabs.stdout.read()
-            active_tab = active_tab.stdout.read()
-            all_tabs = all_tabs.split()
-            active_tab = active_tab.decode('utf-8').split('\n')[2]
+    # Connect to local influx db container.
+    config_json = load_config()
+    client = InfluxDBClient(url='http://localhost:8086', token=config_json['token'], org=config_json['org'])
 
-            parsed_links = set()
-            for link in all_tabs:
-                string_form = link.decode('utf-8')
-                if string_form[0] != '[':
-                    parsed_url = parse_url(string_form)
-                    parsed_links.add(parsed_url)
+    try:
+        while True:
+            is_chrome_open = False
+            list_procs = ""
+            output = subprocess.Popen(["ps", "aux"], stdout=subprocess.PIPE)
+            list_procs = output.stdout.read()
+            if 'Google Chrome'.encode('utf-8') in list_procs:
+                is_chrome_open = True
 
-            parsed_active_link = parse_url(active_tab[5:])
+            if is_chrome_open:
+                all_tabs = subprocess.Popen(["chrome-cli", "list", "links"], stdout=subprocess.PIPE)
+                active_tab = subprocess.Popen(["chrome-cli", "info"], stdout=subprocess.PIPE)
+                all_tabs = all_tabs.stdout.read()
+                active_tab = active_tab.stdout.read()
+                all_tabs = all_tabs.split()
+                active_tab = active_tab.decode('utf-8').split('\n')[2]
 
-            config_json = load_config()
-            client = InfluxDBClient(url='http://localhost:8086', token=config_json['token'], org=config_json['org'])
-            write_api = client.write_api(write_options=SYNCHRONOUS)
-            query_api = client.query_api()
+                parsed_links = set()
+                for link in all_tabs:
+                    string_form = link.decode('utf-8')
+                    if string_form[0] != '[':
+                        parsed_url = parse_url(string_form)
+                        parsed_links.add(parsed_url)
 
-            for link in parsed_links:
-                active_time = 0 if parsed_active_link != link else 1
-                inactive_time = 1 if parsed_active_link != link else 0
-                insert_link_query(write_api, link, config_json['bucket_name'], active_time, inactive_time)
+                parsed_active_link = parse_url(active_tab[5:])
 
-        time.sleep(1)
+                write_api = client.write_api(write_options=SYNCHRONOUS)
+                query_api = client.query_api()
+
+                for link in parsed_links:
+                    active_time = 0 if parsed_active_link != link else 1
+                    inactive_time = 1 if parsed_active_link != link else 0
+                    insert_link_query(write_api, link, config_json['bucket_name'], active_time, inactive_time)
+
+            time.sleep(1)
+
+    except:
+        client.close()
