@@ -5,7 +5,10 @@
 We assume, throughout this documentation, the following software is installed:
 <ol>
 <li> Docker </li>
+<li> Python's influxdb-client </li>
 </ol>
+
+Simply run `pip install influxdb-client` to install the influxdb-client.
 
 ### Simple usage 
 
